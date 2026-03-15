@@ -1,9 +1,11 @@
 """FastAPI 应用 — paper2zh WebUI 后端"""
 
+import io
 import json
 import os
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -153,7 +155,7 @@ async def job_progress_sse(job_id: str):
 
 @app.get("/api/jobs/{job_id}/result")
 async def download_result(job_id: str):
-    """下载翻译结果 Markdown"""
+    """下载翻译结果（zip 包含 md + images）"""
     job = task_manager.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -164,10 +166,29 @@ async def download_result(job_id: str):
     if not result_file.exists():
         raise HTTPException(status_code=404, detail="结果文件不存在")
 
-    return FileResponse(
-        path=str(result_file),
-        filename=result_file.name,
-        media_type="text/markdown; charset=utf-8",
+    paper_dir = result_file.parent
+    zip_name = paper_dir.name + ".zip"
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # 添加翻译后的 md
+        zf.write(result_file, result_file.name)
+        # 添加英文原文 md（如果存在）
+        original_md = paper_dir / (paper_dir.name + ".md")
+        if original_md.exists():
+            zf.write(original_md, original_md.name)
+        # 添加 images 目录
+        images_dir = paper_dir / "images"
+        if images_dir.is_dir():
+            for img in images_dir.iterdir():
+                if img.is_file():
+                    zf.write(img, f"images/{img.name}")
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
     )
 
 

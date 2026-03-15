@@ -115,7 +115,7 @@
     </div>
     <div id="activeActions" class="hidden mt-4 flex gap-3">
       <button id="btnPreview" onclick="previewJob(activeJobId)" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition">预览结果</button>
-      <button id="btnDownload" onclick="downloadJob(activeJobId)" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition">下载 Markdown</button>
+      <button id="btnDownload" onclick="downloadJob(activeJobId)" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition">下载 ZIP</button>
     </div>
     <div id="activeError" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"></div>
   </div>
@@ -337,7 +337,7 @@ function renderJobs(jobs) {
       <div class="flex items-center gap-2 flex-shrink-0">
         <span class="badge badge-${stage}">${label}</span>
         ${isComplete ? `<button onclick="previewJob('${j.job_id}')" class="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded">预览</button>
-        <button onclick="downloadJob('${j.job_id}')" class="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">下载</button>` : ''}
+        <button onclick="downloadJob('${j.job_id}')" class="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">下载 ZIP</button>` : ''}
         <button onclick="deleteJob('${j.job_id}')" class="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded">删除</button>
       </div>
     </div>`;
