@@ -1,0 +1,42 @@
+[project]
+name = "paper2zh"
+version = "0.1.0"
+description = "英文学术文献 PDF → MinerU → Markdown → LLM翻译 自动化工作流"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "MIT" }
+
+dependencies = [
+    "mineru[all]",
+    "openai>=1.0",
+    "click>=8.0",
+    "loguru>=0.7",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "python-multipart>=0.0.7",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+paper2zh = "paper2zh.cli:main"
+paper2zh-web = "paper2zh.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

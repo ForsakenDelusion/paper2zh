@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>paper2zh — 学术 PDF 翻译</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  .drop-zone.dragover { border-color: #3b82f6; background: #eff6ff; }
+  .prose h1,.prose h2,.prose h3,.prose h4 { margin-top:1.2em;margin-bottom:.6em;font-weight:700; }
+  .prose h1{font-size:1.6em} .prose h2{font-size:1.35em} .prose h3{font-size:1.15em}
+  .prose p{margin:.6em 0;line-height:1.8} .prose ul,.prose ol{margin:.5em 0;padding-left:1.5em}
+  .prose table{border-collapse:collapse;width:100%;margin:1em 0}
+  .prose th,.prose td{border:1px solid #d1d5db;padding:.4em .8em;text-align:left}
+  .prose th{background:#f3f4f6;font-weight:600}
+  .prose img{max-width:100%;border-radius:6px;margin:1em auto;display:block}
+  .prose code{background:#f3f4f6;padding:.15em .35em;border-radius:4px;font-size:.9em}
+  .prose pre{background:#1e293b;color:#e2e8f0;padding:1em;border-radius:8px;overflow-x:auto;margin:1em 0}
+  .prose pre code{background:none;padding:0;color:inherit}
+  .prose blockquote{border-left:4px solid #3b82f6;padding:.5em 1em;margin:1em 0;background:#f8fafc}
+  .badge{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:.75rem;font-weight:600}
+  .badge-pending{background:#fef3c7;color:#92400e} .badge-converting,.badge-splitting{background:#dbeafe;color:#1e40af}
+  .badge-tagging{background:#fce7f3;color:#9d174d} .badge-translating{background:#e0e7ff;color:#3730a3} .badge-completed{background:#d1fae5;color:#065f46}
+  .badge-failed{background:#fee2e2;color:#991b1b}
+  @keyframes pulse-bar{0%,100%{opacity:1}50%{opacity:.6}}
+  .anim-pulse{animation:pulse-bar 1.5s ease-in-out infinite}
+  .fade-in{animation:fadeIn .3s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">📄</span>
+      <h1 class="text-xl font-bold text-gray-900">paper2zh</h1>
+      <span class="text-sm text-gray-400 ml-1">学术 PDF → 中文 Markdown</span>
+    </div>
+    <button onclick="toggleConfig()" class="text-sm px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      设置
+    </button>
+  </div>
+</header>
+
+<!-- Config Panel -->
+<div id="configPanel" class="hidden bg-white border-b border-gray-200 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">API Key</label>
+        <div class="relative">
+          <input id="cfgApiKey" type="password" placeholder="留空则使用服务端环境变量" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm pr-9 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+          <button onclick="toggleApiKeyVis()" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+            <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+        <p id="cfgApiKeyHint" class="text-xs text-gray-400 mt-1"></p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">Base URL</label>
+        <input id="cfgBaseUrl" type="text" placeholder="https://api.deepseek.com" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">模型</label>
+        <input id="cfgModel" type="text" value="deepseek-chat" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">解析后端</label>
+        <select id="cfgBackend" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"></select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Upload Zone -->
+  <div id="dropZone" class="drop-zone border-2 border-dashed border-gray-300 rounded-2xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-200"
+       onclick="document.getElementById('fileInput').click()">
+    <input id="fileInput" type="file" accept=".pdf" class="hidden" onchange="handleFile(this.files[0])">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+        <svg class="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      </div>
+      <div>
+        <p class="text-lg font-medium text-gray-700">拖拽 PDF 到这里，或点击选择文件</p>
+        <p class="text-sm text-gray-400 mt-1">支持英文学术论文 PDF</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Job Progress -->
+  <div id="activeJob" class="hidden fade-in bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div id="activeSpinner" class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <h3 id="activeFilename" class="font-semibold text-gray-800"></h3>
+      </div>
+      <span id="activeBadge" class="badge badge-pending"></span>
+    </div>
+    <div class="space-y-2">
+      <div class="flex justify-between text-sm text-gray-500">
+        <span id="activeMessage">等待处理...</span>
+        <span id="activePercent"></span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+        <div id="activeBar" class="bg-blue-500 h-full rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+    <div id="activeActions" class="hidden mt-4 flex gap-3">
+      <button id="btnPreview" onclick="previewJob(activeJobId)" class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition">预览结果</button>
+      <button id="btnDownload" onclick="downloadJob(activeJobId)" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition">下载 Markdown</button>
+    </div>
+    <div id="activeError" class="hidden mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"></div>
+  </div>
+
+  <!-- Preview -->
+  <div id="previewSection" class="hidden fade-in bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h3 class="font-semibold text-gray-800">翻译预览</h3>
+      <button onclick="document.getElementById('previewSection').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="previewContent" class="prose max-w-none px-6 py-4 overflow-auto" style="max-height:70vh"></div>
+  </div>
+
+  <!-- History -->
+  <div>
+    <h2 class="text-lg font-semibold text-gray-700 mb-3">翻译历史</h2>
+    <div id="jobList" class="space-y-2">
+      <p id="emptyHint" class="text-gray-400 text-sm text-center py-8">暂无翻译记录</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+  <div class="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm max-w-sm"></div>
+</div>
+
+<script>
+// --- State ---
+let activeJobId = null;
+let activeSSE = null;
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  await loadJobs();
+  setupDragDrop();
+});
+
+// --- Config ---
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    const cfg = await r.json();
+    const sel = document.getElementById('cfgBackend');
+    sel.innerHTML = '';
+    (cfg.backends || []).forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.value; opt.textContent = b.label;
+      if (b.default) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (cfg.base_url) document.getElementById('cfgBaseUrl').value = cfg.base_url;
+    document.getElementById('cfgApiKeyHint').textContent = cfg.has_api_key ? '✓ 服务端已配置 API Key' : '服务端未配置，请在此填写';
+  } catch(e) { console.warn('加载配置失败', e); }
+}
+
+function toggleConfig() {
+  document.getElementById('configPanel').classList.toggle('hidden');
+}
+
+function toggleApiKeyVis() {
+  const inp = document.getElementById('cfgApiKey');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// --- Drag & Drop ---
+function setupDragDrop() {
+  const zone = document.getElementById('dropZone');
+  ['dragenter','dragover'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.remove('dragover'); }));
+  zone.addEventListener('drop', ev => {
+    const file = ev.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+}
+
+// --- Upload ---
+async function handleFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.pdf')) {
+    showToast('请选择 PDF 文件'); return;
+  }
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('backend', document.getElementById('cfgBackend').value);
+  fd.append('model', document.getElementById('cfgModel').value);
+  fd.append('api_key', document.getElementById('cfgApiKey').value);
+  fd.append('base_url', document.getElementById('cfgBaseUrl').value);
+  fd.append('lang', 'en');
+
+  // Show active job
+  const panel = document.getElementById('activeJob');
+  panel.classList.remove('hidden');
+  document.getElementById('activeFilename').textContent = file.name;
+  document.getElementById('activeBadge').textContent = '上传中';
+  document.getElementById('activeBadge').className = 'badge badge-pending';
+  document.getElementById('activeMessage').textContent = '正在上传...';
+  document.getElementById('activeBar').style.width = '0%';
+  document.getElementById('activePercent').textContent = '';
+  document.getElementById('activeActions').classList.add('hidden');
+  document.getElementById('activeError').classList.add('hidden');
+  document.getElementById('activeSpinner').classList.remove('hidden');
+
+  try {
+    const r = await fetch('/api/translate', { method: 'POST', body: fd });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || '上传失败');
+    }
+    const data = await r.json();
+    activeJobId = data.job_id;
+    showToast('翻译任务已启动');
+    connectSSE(data.job_id);
+    loadJobs();
+  } catch(e) {
+    document.getElementById('activeMessage').textContent = '上传失败: ' + e.message;
+    document.getElementById('activeBadge').textContent = '失败';
+    document.getElementById('activeBadge').className = 'badge badge-failed';
+    document.getElementById('activeSpinner').classList.add('hidden');
+    showToast('错误: ' + e.message);
+  }
+  // Reset file input
+  document.getElementById('fileInput').value = '';
+}
+
+// --- SSE Progress ---
+function connectSSE(jobId) {
+  if (activeSSE) activeSSE.close();
+  activeSSE = new EventSource('/api/jobs/' + jobId + '/progress');
+  activeSSE.onmessage = (ev) => {
+    try {
+      const p = JSON.parse(ev.data);
+      updateActiveProgress(p);
+      if (p.stage === 'completed' || p.stage === 'failed') {
+        activeSSE.close(); activeSSE = null;
+        loadJobs();
+      }
+    } catch(e) { console.warn('SSE parse error', e); }
+  };
+  activeSSE.onerror = () => { activeSSE.close(); activeSSE = null; };
+}
+
+const stageLabels = {
+  pending: '等待中', converting: '转换 PDF', splitting: '智能分块',
+  tagging: '提取标签', translating: '翻译中', completed: '已完成', failed: '失败'
+};
+
+function updateActiveProgress(p) {
+  const badge = document.getElementById('activeBadge');
+  badge.textContent = stageLabels[p.stage] || p.stage;
+  badge.className = 'badge badge-' + p.stage;
+
+  document.getElementById('activeMessage').textContent = p.message || '';
+
+  const bar = document.getElementById('activeBar');
+  const pct = document.getElementById('activePercent');
+
+  if (p.stage === 'translating' && p.total > 0) {
+    const percent = Math.round((p.current / p.total) * 100);
+    bar.style.width = percent + '%';
+    bar.classList.remove('anim-pulse');
+    pct.textContent = percent + '%';
+  } else if (p.stage === 'completed') {
+    bar.style.width = '100%';
+    bar.classList.remove('anim-pulse');
+    bar.classList.remove('bg-blue-500');
+    bar.classList.add('bg-green-500');
+    pct.textContent = '100%';
+    document.getElementById('activeActions').classList.remove('hidden');
+    document.getElementById('activeSpinner').classList.add('hidden');
+  } else if (p.stage === 'failed') {
+    bar.classList.remove('anim-pulse');
+    bar.classList.remove('bg-blue-500');
+    bar.classList.add('bg-red-500');
+    pct.textContent = '';
+    document.getElementById('activeSpinner').classList.add('hidden');
+    const errDiv = document.getElementById('activeError');
+    errDiv.classList.remove('hidden');
+    errDiv.textContent = p.message;
+  } else {
+    // converting / splitting — indeterminate
+    bar.style.width = '40%';
+    bar.classList.add('anim-pulse');
+    pct.textContent = '';
+  }
+}
+
+// --- Jobs List ---
+async function loadJobs() {
+  try {
+    const r = await fetch('/api/jobs');
+    const data = await r.json();
+    renderJobs(data.jobs || []);
+  } catch(e) { console.warn('加载任务列表失败', e); }
+}
+
+function renderJobs(jobs) {
+  const list = document.getElementById('jobList');
+  const hint = document.getElementById('emptyHint');
+  if (!jobs.length) { list.innerHTML = ''; list.appendChild(hint); return; }
+
+  list.innerHTML = jobs.map(j => {
+    const stage = j.progress?.stage || 'pending';
+    const label = stageLabels[stage] || stage;
+    const time = new Date(j.created_at).toLocaleString('zh-CN');
+    const isComplete = stage === 'completed';
+    const isFailed = stage === 'failed';
+    return `<div class="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-4 py-3 hover:shadow-sm transition">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="text-lg">${isFailed ? '❌' : isComplete ? '✅' : '⏳'}</span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-gray-800 truncate">${esc(j.filename)}</p>
+          <p class="text-xs text-gray-400">${time}${j.progress?.message ? ' · ' + esc(j.progress.message) : ''}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="badge badge-${stage}">${label}</span>
+        ${isComplete ? `<button onclick="previewJob('${j.job_id}')" class="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded">预览</button>
+        <button onclick="downloadJob('${j.job_id}')" class="text-xs px-2 py-1 text-gray-600 hover:bg-gray-100 rounded">下载</button>` : ''}
+        <button onclick="deleteJob('${j.job_id}')" class="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// --- Preview ---
+async function previewJob(jobId) {
+  const section = document.getElementById('previewSection');
+  const content = document.getElementById('previewContent');
+  section.classList.remove('hidden');
+  content.innerHTML = '<p class="text-gray-400 text-center py-8">加载中...</p>';
+
+  try {
+    const r = await fetch('/api/jobs/' + jobId + '/preview');
+    if (!r.ok) throw new Error((await r.json()).detail || '加载失败');
+    const data = await r.json();
+    let md = data.markdown || '';
+    const imgBase = data.image_base || '';
+    // Rewrite image paths
+    if (imgBase) {
+      md = md.replace(/!\[([^\]]*)\]\(images\//g, '![$1](' + imgBase + '/images/');
+      md = md.replace(/src="images\//g, 'src="' + imgBase + '/images/');
+    }
+    content.innerHTML = renderMarkdown(md);
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e) {
+    content.innerHTML = '<p class="text-red-500 text-center py-8">加载失败: ' + esc(e.message) + '</p>';
+  }
+}
+
+function renderMarkdown(md) {
+  let html = marked.parse(md);
+  // KaTeX: block $$...$$
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
+    try { return katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false }); }
+    catch(e) { return '<code>' + esc(tex) + '</code>'; }
+  });
+  // KaTeX: inline $...$
+  html = html.replace(/\$([^\$\n]+?)\$/g, (_, tex) => {
+    try { return katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false }); }
+    catch(e) { return '<code>' + esc(tex) + '</code>'; }
+  });
+  return html;
+}
+
+// --- Download ---
+function downloadJob(jobId) {
+  window.open('/api/jobs/' + jobId + '/result', '_blank');
+}
+
+// --- Delete ---
+async function deleteJob(jobId) {
+  try {
+    await fetch('/api/jobs/' + jobId, { method: 'DELETE' });
+    loadJobs();
+    showToast('已删除');
+  } catch(e) { showToast('删除失败'); }
+}
+
+// --- Utils ---
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.querySelector('div').textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
+</script>
+</body>
+</html>
