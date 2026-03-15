@@ -75,6 +75,38 @@ class TaskManager:
         self.output_dir = output_dir
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
+        self._scan_existing_papers()
+
+    def _scan_existing_papers(self) -> None:
+        """扫描 output 目录，将已完成的翻译加载为历史任务"""
+        if not self.output_dir.is_dir():
+            return
+        for paper_dir in sorted(self.output_dir.iterdir()):
+            if not paper_dir.is_dir() or paper_dir.name.startswith("."):
+                continue
+            zh_files = list(paper_dir.glob("*_zh.md"))
+            if not zh_files:
+                continue
+            zh_file = zh_files[0]
+            title_slug = paper_dir.name
+            # 用目录名作为稳定 ID，这样重启后 ID 不变
+            job_id = "hist_" + title_slug[:20]
+            job = Job(job_id=job_id, filename=title_slug + ".pdf")
+            job.result_path = str(zh_file)
+            job.title_slug = title_slug
+            job.progress = JobProgress(
+                stage=JobStage.COMPLETED,
+                current=1,
+                total=1,
+                message="历史翻译",
+            )
+            # 用文件修改时间作为创建时间
+            mtime = zh_file.stat().st_mtime
+            job.created_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+            self._jobs[job_id] = job
+        count = sum(1 for jid in self._jobs if jid.startswith("hist_"))
+        if count:
+            logger.info(f"从 output 目录加载了 {count} 篇历史翻译")
 
     def create_job(self, filename: str) -> Job:
         """创建新任务"""
@@ -90,10 +122,16 @@ class TaskManager:
         return self._jobs.get(job_id)
 
     def list_jobs(self) -> list[JobInfo]:
-        """列出所有任务"""
+        """列出所有任务（当前会话任务在前，历史论文在后）"""
         with self._lock:
-            return [job.to_info() for job in reversed(self._jobs.values())]
-
+            active = []
+            history = []
+            for job in self._jobs.values():
+                if job.job_id.startswith("hist_"):
+                    history.append(job.to_info())
+                else:
+                    active.append(job.to_info())
+            return list(reversed(active)) + list(reversed(history))
     def delete_job(self, job_id: str) -> bool:
         """删除任务"""
         with self._lock:

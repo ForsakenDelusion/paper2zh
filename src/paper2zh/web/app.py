@@ -107,7 +107,16 @@ async def get_job(job_id: str):
 
 @app.delete("/api/jobs/{job_id}")
 async def delete_job(job_id: str):
-    """删除任务"""
+    """删除任务（历史论文同时删除文件）"""
+    job = task_manager.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    # 如果是历史论文，删除对应的输出目录
+    if job.result_path:
+        paper_dir = Path(job.result_path).parent
+        if paper_dir.is_dir():
+            shutil.rmtree(paper_dir, ignore_errors=True)
+            logger.info(f"删除输出目录: {paper_dir}")
     if not task_manager.delete_job(job_id):
         raise HTTPException(status_code=404, detail="任务不存在")
     return {"message": "已删除"}
